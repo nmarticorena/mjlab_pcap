@@ -29,7 +29,6 @@ from mjlab.viewer.viser import ViserMujocoScene
 
 PANDA_ARM_JOINTS = tuple(f"joint{i}" for i in range(1, 8))
 PANDA_GRIPPER_JOINTS = ("finger_joint1", "finger_joint2")
-NUM_ENVS = 20
 ENV_SPACING = 2.0
 IK_ITERATIONS = 10
 ROPE_LINKS = 6
@@ -99,12 +98,12 @@ def _get_frame_pose(
   )
 
 
-def main() -> None:
+def main(n_envs:int = 1) -> None:
   device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
   sim_scene = Scene(
     SceneCfg(
-      num_envs=NUM_ENVS,
+      num_envs=n_envs,
       env_spacing=ENV_SPACING,
       extent=1.6,
       entities={"robot": get_panda_robot_cfg(), "rope": get_rope_cfg()},
@@ -117,15 +116,15 @@ def main() -> None:
     njmax=1024 * 2,
     mujoco=MujocoCfg(gravity=(0, 0, -9.81)),
   )
-  sim = Simulation(num_envs=NUM_ENVS, cfg=sim_cfg, model=model, device=device)
+  sim = Simulation(num_envs=n_envs, cfg=sim_cfg, model=model, device=device)
   sim_scene.initialize(sim.mj_model, sim.model, sim.data)
-  sim_scene._default_env_origins = _make_grid_origins(NUM_ENVS, ENV_SPACING, device)
+  sim_scene._default_env_origins = _make_grid_origins(n_envs, ENV_SPACING, device)
 
   robot: Entity = sim_scene["robot"]
   default_joint_pos = robot.data.default_joint_pos.to(
     device=device, dtype=robot.data.joint_pos.dtype
   )
-  env = SimpleNamespace(num_envs=NUM_ENVS, device=device, scene=sim_scene, sim=sim)
+  env = SimpleNamespace(num_envs=n_envs, device=device, scene=sim_scene, sim=sim)
   reset_scene_to_default(env, None)
   sim.forward()
 
@@ -145,11 +144,11 @@ def main() -> None:
   grip_ids, _ = robot.find_joints(PANDA_GRIPPER_JOINTS)
   grip_joint_ids = torch.tensor(grip_ids, device=device, dtype=torch.long)
   grip_open = default_joint_pos[:, grip_joint_ids].clone()
-  zero_joint_vel = torch.zeros((NUM_ENVS, len(PANDA_ARM_JOINTS)), device=device)
+  zero_joint_vel = torch.zeros((n_envs, len(PANDA_ARM_JOINTS)), device=device)
   physics_dt = sim.cfg.mujoco.timestep
 
   server = viser.ViserServer(label="Panda IK Control Demo")
-  viewer_scene = ViserMujocoScene(server, sim.mj_model, num_envs=NUM_ENVS)
+  viewer_scene = ViserMujocoScene(server, sim.mj_model, num_envs=n_envs)
   viewer_scene.camera_tracking_enabled = False
   viewer_scene.show_only_selected = True
   viewer_scene.show_contact_points = True
@@ -227,7 +226,7 @@ def main() -> None:
   print("  Contact points and forces are enabled")
   print("=" * 60)
 
-  target_action = torch.zeros(NUM_ENVS, 7, device=device)
+  target_action = torch.zeros(n_envs, 7, device=device)
 
   def _reset() -> None:
     sim.reset()
@@ -293,4 +292,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-  main()
+  import tyro
+  tyro.cli(main)
