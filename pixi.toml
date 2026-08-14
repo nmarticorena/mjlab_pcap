@@ -2,15 +2,16 @@
 authors = ["nmarticorena <nicolas.marticorena.vidal@gmail.com>"]
 channels = ["conda-forge"]
 name = "mjlab"
-platforms = ["linux-64"]
+platforms = ["linux-64", "osx-arm64"]
 version = "0.1.0"
 
 [tasks]
 demo = {cmd = "python3 scripts/panda_ik.py"}
 
 [dependencies]
-python = "*"
+python = "3.13.*"
 robot_descriptions = ">=2.0.0,<3"
+scipy = ">=1.18.0,<2"
 
 [pypi-dependencies]
-mjlab = {git = "https://github.com/mujocolab/mjlab.git", rev = "a0ba058"}
+mjlab = {git = "https://github.com/mujocolab/mjlab.git", rev = "v1.6.0"}
